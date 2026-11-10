@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Power to Temperature — CoolerControl</title>
+<script src="/plugins/lib/cc-plugin-lib.js"></script>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 0; padding: 1.3rem; font: inherit; background: var(--bg-two, transparent); color: inherit; }
+  main { max-width: 760px; }
+  h1 { font-size: 1.4rem; margin: 0 0 .5rem; }
+  h2 { font-size: 1.05rem; }
+  p { line-height: 1.55; }
+  .intro { opacity: .88; max-width: 65ch; }
+  .panel { border: 1px solid #8885; border-radius: 12px; padding: 16px; margin: 18px 0; }
+  .row { display: grid; grid-template-columns: minmax(210px, 1fr) minmax(130px, 170px);
+    gap: 12px; padding: 14px 0; align-items: center; border-top: 1px solid #8883; }
+  .row:first-child { border: none; padding-top: 0; }
+  .label { font-weight: 600; }
+  .meta { opacity: .75; font-size: .92rem; margin-top: .2rem; }
+  .current { font-variant-numeric: tabular-nums; }
+  input { font: inherit; width: 100%; padding: 9px 11px; box-sizing: border-box;
+    background: transparent; color: inherit; border: 1px solid #8889; border-radius: 7px; }
+  input:focus { outline: 2px solid currentColor; outline-offset: 2px; }
+  button { font: inherit; font-weight: 600; padding: 10px 18px; cursor: pointer;
+    border-radius: 8px; border: 1px solid #9998; background: #8882; color: inherit; }
+  button:disabled { cursor: not-allowed; opacity: .5; }
+  button:hover:not(:disabled) { background: #8884; }
+  #notice { min-height: 1.4em; }
+  .warning { border-left: 3px solid #dba344; padding-left: 14px; }
+  code { font-family: monospace; }
+  @media (max-width: 520px) { body { padding: 12px; } .row { grid-template-columns: 1fr; gap: 6px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Power → Virtual Temperature</h1>
+  <p class="intro">Control ordinary CoolerControl fan curves using electricity consumption. For each detected device, choose the wattage that should correspond to <strong>100°C</strong> (100% of the scale).</p>
+  <section class="panel" aria-labelledby="sources-title">
+    <h2 id="sources-title">Detected power sources</h2>
+    <form id="config-form">
+      <div id="sources" aria-live="polite">Reading available sensors…</div>
+      <p><button id="save" type="submit" disabled>Save settings</button></p>
+    </form>
+    <p id="notice" role="status" aria-live="polite"></p>
+  </section>
+  <section class="panel warning">
+    <h2>Cooling safety</h2>
+    <p>These are <strong>not actual temperatures</strong>. If a power reading or maximum-watt setting is unavailable, that sensor reports <strong>100°C</strong> as a fail-safe. Create a second profile based on <em>real hardware temperature</em> and combine both with a <strong>Maximum</strong> Mix Profile.</p>
+  </section>
+  <section class="panel">
+    <h2>How to use</h2>
+    <p>1. Enter each device's desired maximum power and save.</p>
+    <p>2. In CoolerControl, create a normal temperature Graph Profile using the <strong>Power to Temperature</strong> device as the source.</p>
+    <p>3. Mix it with a real-temperature profile to keep cooling safe during low-power thermal soak or sensor faults.</p>
+    <p class="meta">Example: 500 W maximum → 250 W reads 50°C. Fan output is still determined by your curve; 100°C does not automatically mean 100% fan speed.</p>
+  </section>
+</main>
+<script>
+"use strict";
+const sourceRoot = document.getElementById("sources");
+const notice = document.getElementById("notice");
+const saveButton = document.getElementById("save");
+const inputs = new Map();
+const output = new Map();
+let deviceUID = null;
+let intervalID = null;
+
+function configValues() {
+  const max_watts = {};
+  for (const [key, input] of inputs) {
+    if (input.value.trim() === "") continue;
+    const value = Number(input.value);
+    if (!Number.isFinite(value) || value < 1 || value > 10000) {
+      throw new Error("Maximum power must be between 1 and 10,000 watts.");
+    }
+    max_watts[key] = value;
+  }
+  return {max_watts};
+}
+
+async function updateReadings() {
+  if (!deviceUID) return;
+  try {
+    const status = await getStatus(true);
+    if (!(status instanceof Map)) return;
+    const channelStatus = status.get(deviceUID);
+    if (!(channelStatus instanceof Map)) return;
+    for (const [key, label] of output) {
+      const temp = Number(channelStatus.get(key)?.temp);
+      if (!Number.isFinite(temp) || temp < 0 || temp > 100) {
+        label.textContent = "Waiting for readings…";
+      } else if (temp >= 100) {
+        label.textContent = "100°C virtual (limit or fail-safe)";
+      } else {
+        label.textContent = temp.toFixed(1) + "°C virtual";
+      }
+    }
+  } catch (error) {
+    for (const label of output.values()) label.textContent = "Status unavailable";
+  }
+}
+
+async function initialize() {
+  try {
+    const devices = await getDevices(true);
+    const config = await getPluginConfig(true) || {};
+    const values = (config.max_watts && typeof config.max_watts === "object")
+      ? config.max_watts : {};
+    const device = devices.find(d =>
+      d.name === "Power to Temperature" ||
+      d.info?.model === "Power-based virtual temperature sensors");
+    if (!device) {
+      sourceRoot.textContent = "No plugin sensors detected. Check the plugin service and restart CoolerControl after installation.";
+      return;
+    }
+    deviceUID = device.uid;
+    const tempMap = device.info?.temps || {};
+    const entries = tempMap instanceof Map
+      ? [...tempMap.entries()]
+      : Object.entries(tempMap);
+    if (!entries.length) {
+      sourceRoot.textContent = "The plugin is running but the OS exposes no supported power sources.";
+      return;
+    }
+    entries.sort((a, b) => (a[1].label || a[0]).localeCompare(b[1].label || b[0]));
+    sourceRoot.replaceChildren();
+    for (const [id, info] of entries) {
+      const row = document.createElement("div");
+      row.className = "row";
+      const description = document.createElement("div");
+      const title = document.createElement("div");
+      title.className = "label";
+      title.textContent = (info.label || id).replace(/ \(power %\)$/, "");
+      const live = document.createElement("div");
+      live.className = "meta current";
+      live.textContent = "Waiting for readings…";
+      description.append(title, live);
+      const field = document.createElement("div");
+      const label = document.createElement("label");
+      label.className = "meta";
+      label.htmlFor = "max-" + id;
+      label.textContent = "Maximum watts (100°C)";
+      const input = document.createElement("input");
+      input.type = "number";
+      input.id = "max-" + id;
+      input.min = "1";
+      input.max = "10000";
+      input.step = "any";
+      input.placeholder = "e.g. 500";
+      input.autocomplete = "off";
+      if (values[id] != null) input.value = values[id];
+      field.append(label, input);
+      row.append(description, field);
+      sourceRoot.appendChild(row);
+      inputs.set(id, input);
+      output.set(id, live);
+    }
+    saveButton.disabled = false;
+    await updateReadings();
+    intervalID = setInterval(updateReadings, 3000);
+  } catch (error) {
+    sourceRoot.textContent = "Unable to load plugin settings: " + String(error);
+  }
+}
+
+document.getElementById("config-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  saveButton.disabled = true;
+  try {
+    const expected = configValues();
+    await savePluginConfig(expected);
+    const current = await getPluginConfig(true) || {};
+    const saved = current.max_watts || {};
+    if (Object.entries(expected.max_watts).some(([id, w]) => Number(saved[id]) !== w) ||
+        Object.keys(saved).length !== Object.keys(expected.max_watts).length) {
+      throw new Error("CoolerControl did not confirm the settings were saved.");
+    }
+    notice.textContent = "Saved. Existing fan profiles were not changed.";
+    await updateReadings();
+  } catch (error) {
+    notice.textContent = "Could not save: " + String(error);
+  } finally {
+    saveButton.disabled = inputs.size === 0;
+  }
+});
+
+window.addEventListener("pagehide", () => {
+  if (intervalID !== null) clearInterval(intervalID);
+});
+runPluginScript(initialize);
+</script>
+</body>
+</html>

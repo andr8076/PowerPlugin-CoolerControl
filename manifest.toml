@@ -1,0 +1,9 @@
+id = "cc_power_to_temp"
+type = "device"
+version = "1.0.0-rc.1"
+description = "Expose CPU and GPU power as 0-100°C virtual sensors for ordinary fan profiles."
+url = "https://github.com/andr8076/PowerPlugin-CoolerControl"
+executable = "start.sh"
+address = "/run/cc-power-to-temp.sock"
+# CPU RAPL package energy is normally root-readable only.
+privileged = true

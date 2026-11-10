@@ -1,0 +1,48 @@
+name: Tests
+on:
+  push:
+  pull_request:
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Generate protocol bindings
+        run: python scripts/generate_proto.py
+      - name: Run unit and protocol tests
+        run: python -m unittest discover -s tests -v
+      - name: Check Python syntax
+        run: python -m compileall -q power_sensor.py service.py generated
+      - name: Check shell syntax
+        run: bash -n install.sh uninstall.sh start.sh
+      - name: Check UI JavaScript syntax
+        run: |
+          python - <<'PY'
+          from html.parser import HTMLParser
+          from pathlib import Path
+          class Extractor(HTMLParser):
+              recording = False
+              scripts = []
+              def handle_starttag(self, tag, attrs):
+                  if tag == "script" and not dict(attrs).get("src"):
+                      self.recording = True
+              def handle_endtag(self, tag):
+                  if tag == "script":
+                      self.recording = False
+              def handle_data(self, data):
+                  if self.recording:
+                      self.scripts.append(data)
+          parser = Extractor()
+          parser.feed(Path("ui/index.html").read_text())
+          Path("/tmp/power-plugin-ui.js").write_text("\n".join(parser.scripts))
+          PY
+          node --check /tmp/power-plugin-ui.js
