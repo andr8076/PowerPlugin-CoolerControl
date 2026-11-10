@@ -1,6 +1,6 @@
 id = "cc_power_to_temp"
 type = "device"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 description = "Expose CPU and GPU power as 0-100°C virtual sensors for ordinary fan profiles."
 url = "https://github.com/andr8076/PowerPlugin-CoolerControl"
 executable = "start.sh"

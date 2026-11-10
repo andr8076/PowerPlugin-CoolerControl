@@ -71,7 +71,7 @@ git pull --ff-only
 sudo systemctl restart coolercontrold
 ```
 
-Existing maximum-wattage settings are preserved during installation.
+Upgrades replace the previous plugin installation and remove its old files and backups. Saved maximum-wattage settings are preserved. If activation fails, the previous version is restored.
 
 ## Uninstalling
 
@@ -113,4 +113,4 @@ The plugin uses CoolerControl's device-service gRPC API. Protocol definitions ar
 
 GPL-3.0-or-later. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).
 
-Version: **1.0.0-rc.2**.
+Version: **1.0.0-rc.3**.

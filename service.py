@@ -36,7 +36,7 @@ from coolercontrol.models.v1 import (  # noqa: E402
 from power_sensor import Source, discover, read_limits, virtual_temp
 
 SERVICE_ID = "cc_power_to_temp"
-VERSION = "1.0.0-rc.2"
+VERSION = "1.0.0-rc.3"
 DEVICE_ID = "virtual_power"
 SOCKET = Path(os.environ.get("CC_POWER_SOCKET", "/run/cc-power-to-temp.sock"))
 CONFIG = BASE / "config.json"

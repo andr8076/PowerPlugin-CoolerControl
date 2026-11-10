@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.0-rc.3 — 2026-11-10
+
+- Replace existing installations cleanly during upgrades.
+- Preserve configured wattage limits and restore the previous version if installation fails.
+- Remove obsolete plugin backups created by older installers.
+- Add first-install, upgrade and rollback tests.
+
 ## 1.0.0-rc.2 — 2026-11-10
 
 - Save maximum wattages when a field is committed or the Save button is used.
