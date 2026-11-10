@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install or upgrade without touching CoolerControl's own profiles/configuration.
+# Install or upgrade PowerPlugin for CoolerControl.
 set -euo pipefail
 
 SOURCE="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,7 +14,7 @@ done
 
 echo "PowerPlugin-CoolerControl: install/upgrade"
 echo "Plugin files: $DEST"
-echo "This will not modify fan profiles or restart the daemon."
+echo "Preparing plugin files..."
 sudo -v
 sudo install -d -m 0755 "$BASE"
 STAGE="$(sudo mktemp -d "$BASE/.cc_power_to_temp.stage.XXXXXXXX")"
@@ -58,4 +58,3 @@ echo
 echo "Installed successfully."
 echo "Restart CoolerControl when convenient: sudo systemctl restart coolercontrold"
 echo "Then configure maximum wattages in CoolerControl → Plugins → Power to Temperature."
-echo "Your existing fan profiles are unchanged."

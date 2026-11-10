@@ -1,18 +1,10 @@
 # Changelog
 
-## [1.0.0-rc.1] — 2026-11-10
+## 1.0.0-rc.1 — 2026-11-10
 
-### Added
-- Native CoolerControl device-service plugin for Linux power readings.
-- Individual maximum-wattage configuration for each source.
-- Virtual-temperature IDs stable across Linux hwmon numbering changes.
-- CPU RAPL energy-counter and rollover handling.
-- Fail-safe 100°C readings for missing sensors/settings, plus warning logs.
-- Embedded configuration page, local Unix socket, automated tests and CI.
-- Install, upgrade, uninstall and troubleshooting guidance.
-
-### Fixed since the prototype
-- gRPC/Protocol Buffers version mismatch.
-- Socket security: root-controlled /run instead of a public /tmp path.
-- Detection of input and average power files without duplicating channels.
-- Installer preserves user maximum-wattage settings on upgrades.
+- Added Linux hwmon and CPU RAPL power monitoring.
+- Added configurable wattage limits and virtual temperature sensors.
+- Added the CoolerControl plugin settings page.
+- Added sensor fail-safe handling and RAPL counter rollover support.
+- Added installer, upgrade and uninstall scripts.
+- Added automated tests and GitHub Actions.

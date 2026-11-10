@@ -35,8 +35,8 @@
 </head>
 <body>
 <main>
-  <h1>Power → Virtual Temperature</h1>
-  <p class="intro">Control ordinary CoolerControl fan curves using electricity consumption. For each detected device, choose the wattage that should correspond to <strong>100°C</strong> (100% of the scale).</p>
+  <h1>Power to Temperature</h1>
+  <p class="intro">Set the maximum wattage for each power source. The plugin scales its current power usage to a 0–100°C sensor.</p>
   <section class="panel" aria-labelledby="sources-title">
     <h2 id="sources-title">Detected power sources</h2>
     <form id="config-form">
@@ -46,15 +46,15 @@
     <p id="notice" role="status" aria-live="polite"></p>
   </section>
   <section class="panel warning">
-    <h2>Cooling safety</h2>
-    <p>These are <strong>not actual temperatures</strong>. If a power reading or maximum-watt setting is unavailable, that sensor reports <strong>100°C</strong> as a fail-safe. Create a second profile based on <em>real hardware temperature</em> and combine both with a <strong>Maximum</strong> Mix Profile.</p>
+    <h2>Temperature protection</h2>
+    <p>These sensors show power usage, not hardware temperature. For temperature protection, combine your power curve with an actual temperature curve using a <strong>Maximum Mix Profile</strong>. Missing readings report 100°C.</p>
   </section>
   <section class="panel">
-    <h2>How to use</h2>
-    <p>1. Enter each device's desired maximum power and save.</p>
-    <p>2. In CoolerControl, create a normal temperature Graph Profile using the <strong>Power to Temperature</strong> device as the source.</p>
-    <p>3. Mix it with a real-temperature profile to keep cooling safe during low-power thermal soak or sensor faults.</p>
-    <p class="meta">Example: 500 W maximum → 250 W reads 50°C. Fan output is still determined by your curve; 100°C does not automatically mean 100% fan speed.</p>
+    <h2>Fan curves</h2>
+    <p>1. Set the maximum wattage for each source above.</p>
+    <p>2. Create a <strong>Graph Profile</strong> with a <strong>Power to Temperature</strong> sensor.</p>
+    <p>3. Apply the curve to your fans or combine it with another profile.</p>
+    <p class="meta">Example: 500 W maximum, 250 W measured → 50°C virtual.</p>
   </section>
 </main>
 <script>
@@ -112,7 +112,7 @@ async function initialize() {
       d.name === "Power to Temperature" ||
       d.info?.model === "Power-based virtual temperature sensors");
     if (!device) {
-      sourceRoot.textContent = "No plugin sensors detected. Check the plugin service and restart CoolerControl after installation.";
+      sourceRoot.textContent = "No power sources found. Check that the plugin service is running, then restart CoolerControl.";
       return;
     }
     deviceUID = device.uid;
@@ -121,7 +121,7 @@ async function initialize() {
       ? [...tempMap.entries()]
       : Object.entries(tempMap);
     if (!entries.length) {
-      sourceRoot.textContent = "The plugin is running but the OS exposes no supported power sources.";
+      sourceRoot.textContent = "No supported power sources found.";
       return;
     }
     entries.sort((a, b) => (a[1].label || a[0]).localeCompare(b[1].label || b[0]));
@@ -177,7 +177,7 @@ document.getElementById("config-form").addEventListener("submit", async event =>
         Object.keys(saved).length !== Object.keys(expected.max_watts).length) {
       throw new Error("CoolerControl did not confirm the settings were saved.");
     }
-    notice.textContent = "Saved. Existing fan profiles were not changed.";
+    notice.textContent = "Settings saved.";
     await updateReadings();
   } catch (error) {
     notice.textContent = "Could not save: " + String(error);

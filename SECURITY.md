@@ -1,13 +1,13 @@
 # Security
 
-If you find a security issue, use GitHub's private vulnerability reporting if enabled; do not publish exploit details before a fix is available.
+Report vulnerabilities through GitHub's private vulnerability reporting, if enabled.
 
-## Privileges and trust
+## Permissions
 
-The plugin reads Linux sensor files. CPU RAPL package energy is commonly root-restricted, so the manifest requests privileged execution. The service only reads sysfs/powercap and its config.json. It never controls fans, changes CoolerControl profiles, writes to sysfs, or sends telemetry.
+The plugin runs as root because CPU RAPL energy counters may require privileged access. It reads Linux power sensors and its local configuration and serves data over the Unix socket at `/run/cc-power-to-temp.sock`.
 
-The gRPC service listens on the local /run/cc-power-to-temp.sock Unix socket and rejects all fan-control methods. It refuses to replace a live socket or a socket belonging to another user. The installer uses sudo and downloads pinned Python dependencies. Inspect the source before installation.
+The installer uses sudo and installs pinned Python dependencies from PyPI.
 
-## Cooling safety
+## Thermal protection
 
-Invalid, unreadable or unconfigured sources emit virtual 100°C. Fan duty is still determined by the configured curve. Always provide a second profile using real hardware temperature and a Maximum Mix Profile. Never rely on a virtual wattage sensor as a hardware thermal safeguard.
+Unconfigured or unavailable power sensors report 100°C. For safe fan control, combine a power curve with a real-temperature curve using a Maximum Mix Profile. Set the top point of each curve to provide adequate cooling.

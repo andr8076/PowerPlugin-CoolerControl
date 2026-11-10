@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Remove only this plugin. Existing CoolerControl profiles are untouched.
+# Uninstall PowerPlugin for CoolerControl.
 set -euo pipefail
 DEST="/var/lib/coolercontrol/plugins/cc_power_to_temp"
 if ! sudo test -d "$DEST"; then
