@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.0-rc.2 — 2026-11-10
+
+- Save maximum wattages when a field is committed or the Save button is used.
+- Display the saved maximum next to each power source.
+- Show unsaved values and failed saves explicitly.
+- Include more specific service logs for unavailable power readings or missing settings.
+- Add browser-level configuration tests and a live configuration-reload test.
+
 ## 1.0.0-rc.1 — 2026-11-10
 
 - Added Linux hwmon and CPU RAPL power monitoring.

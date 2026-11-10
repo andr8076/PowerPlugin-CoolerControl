@@ -32,7 +32,7 @@ sudo systemctl restart coolercontrold
 ## Configuration
 
 1. Open **CoolerControl → Plugins → Power to Temperature**.
-2. Enter the **maximum wattage** for each power source and save.
+2. Enter the **maximum wattage** for each power source. It saves when you finish editing a field or click **Save settings**.
 3. Create a **Graph Profile** and select a sensor from **Power to Temperature**.
 4. Assign the profile to the desired fans.
 
@@ -113,4 +113,4 @@ The plugin uses CoolerControl's device-service gRPC API. Protocol definitions ar
 
 GPL-3.0-or-later. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).
 
-Version: **1.0.0-rc.1**.
+Version: **1.0.0-rc.2**.

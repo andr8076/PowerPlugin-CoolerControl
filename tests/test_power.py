@@ -155,3 +155,30 @@ class AdditionalTests(unittest.TestCase):
                     self.assertEqual(readings.status[0].temp, 40.0)
             finally:
                 grpc_server.stop(grace=0).wait()
+
+
+
+class ConfigurationReloadTests(unittest.TestCase):
+    def test_new_maximum_applies_to_running_service_without_restart(self):
+        with TemporaryDirectory() as temp:
+            folder = Path(temp)
+            reading = folder / "power1_average"
+            reading.write_text("250000000")
+            source = Source("gpu-ppt", "Test GPU", reading, "power_uw")
+            config_file = folder / "config.json"
+            service = PowerService([source], config_file)
+            request = type("Q", (), {"device_id": "virtual_power"})()
+
+            # No configuration: full-scale fail-safe.
+            self.assertEqual(service.Status(request, None).status[0].temp, 100)
+
+            config_file.write_text(json.dumps({
+                "max_watts": {source.channel_id: 500}
+            }))
+            self.assertEqual(service.Status(request, None).status[0].temp, 50)
+
+            # Reconfigure while running, without recreating the service.
+            config_file.write_text(json.dumps({
+                "max_watts": {source.channel_id: 1000}
+            }))
+            self.assertEqual(service.Status(request, None).status[0].temp, 25)

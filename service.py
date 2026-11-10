@@ -36,7 +36,7 @@ from coolercontrol.models.v1 import (  # noqa: E402
 from power_sensor import Source, discover, read_limits, virtual_temp
 
 SERVICE_ID = "cc_power_to_temp"
-VERSION = "1.0.0-rc.1"
+VERSION = "1.0.0-rc.2"
 DEVICE_ID = "virtual_power"
 SOCKET = Path(os.environ.get("CC_POWER_SOCKET", "/run/cc-power-to-temp.sock"))
 CONFIG = BASE / "config.json"
@@ -100,8 +100,10 @@ class PowerService(device_service_pb2_grpc.DeviceServiceServicer):
             for source in self.sources:
                 watts = source.watts()
                 maximum = limits.get(source.channel_id)
-                if watts is None or maximum is None:
-                    bad.append(source.label)
+                if watts is None:
+                    bad.append(f"{source.label}: unavailable power reading")
+                elif maximum is None:
+                    bad.append(f"{source.label}: maximum wattage not configured")
                 readings.append(
                     reading_status_pb2.Status(
                         id=source.channel_id,
@@ -113,8 +115,7 @@ class PowerService(device_service_pb2_grpc.DeviceServiceServicer):
         now = time.monotonic()
         if bad and now - self.last_warning_at > 60:
             log.warning(
-                "Fail-safe (100 synthetic C) on %d source(s): %s. "
-                "Check power readings and maximum-watt settings.",
+                "Fail-safe (100 virtual C) on %d source(s): %s.",
                 len(bad), ", ".join(bad),
             )
             self.last_warning_at = now

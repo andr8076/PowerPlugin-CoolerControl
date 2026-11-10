@@ -20,6 +20,8 @@
   .label { font-weight: 600; }
   .meta { opacity: .75; font-size: .92rem; margin-top: .2rem; }
   .current { font-variant-numeric: tabular-nums; }
+  .saved { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .unsaved { opacity: .85; }
   input { font: inherit; width: 100%; padding: 9px 11px; box-sizing: border-box;
     background: transparent; color: inherit; border: 1px solid #8889; border-radius: 7px; }
   input:focus { outline: 2px solid currentColor; outline-offset: 2px; }
@@ -42,6 +44,7 @@
     <form id="config-form">
       <div id="sources" aria-live="polite">Reading available sensors…</div>
       <p><button id="save" type="submit" disabled>Save settings</button></p>
+      <p class="meta">Settings save when you leave a field or click Save settings.</p>
     </form>
     <p id="notice" role="status" aria-live="polite"></p>
   </section>
@@ -64,6 +67,10 @@ const notice = document.getElementById("notice");
 const saveButton = document.getElementById("save");
 const inputs = new Map();
 const output = new Map();
+const savedLabels = new Map();
+let savedValues = {};
+let isSaving = false;
+let saveAgain = false;
 let deviceUID = null;
 let intervalID = null;
 
@@ -78,6 +85,53 @@ function configValues() {
     max_watts[key] = value;
   }
   return {max_watts};
+}
+
+function updateSavedLabels() {
+  for (const [id, label] of savedLabels) {
+    const input = inputs.get(id);
+    const max = savedValues[id];
+    const persisted = Number.isFinite(Number(max)) && max != null;
+    const dirty = input.value.trim() !== (persisted ? String(max) : "");
+    label.classList.toggle("unsaved", dirty);
+    label.textContent = (persisted ? "Saved maximum: " + Number(max).toLocaleString() + " W" : "Not configured") +
+        (dirty ? " · Unsaved change" : "");
+  }
+}
+
+async function saveSettings() {
+  // A second change while saving will be committed after the first.
+  if (isSaving) { saveAgain = true; return; }
+  isSaving = true;
+  saveButton.disabled = true;
+  notice.textContent = "Saving…";
+  try {
+    const expected = configValues();
+    await savePluginConfig(expected);
+    const actual = await getPluginConfig(true) || {};
+    const recorded = actual.max_watts || {};
+    if (Object.entries(expected.max_watts).some(([id, w]) => Number(recorded[id]) !== w) ||
+        Object.keys(recorded).length !== Object.keys(expected.max_watts).length) {
+      throw new Error("Settings were not confirmed by CoolerControl.");
+    }
+    savedValues = {...recorded};
+    notice.textContent = "Settings saved.";
+    await updateReadings();
+  } catch (error) {
+    notice.textContent = "Save failed: " + String(error);
+  } finally {
+    isSaving = false;
+    updateSavedLabels();
+    saveButton.disabled = inputs.size === 0;
+    if (saveAgain) {
+      saveAgain = false;
+      // Only write again when values changed during an ongoing save.
+      if ([...inputs].some(([id, input]) =>
+          input.value.trim() !== (savedValues[id] == null ? "" : String(savedValues[id])))) {
+        void saveSettings();
+      }
+    }
+  }
 }
 
 async function updateReadings() {
@@ -108,6 +162,7 @@ async function initialize() {
     const config = await getPluginConfig(true) || {};
     const values = (config.max_watts && typeof config.max_watts === "object")
       ? config.max_watts : {};
+    savedValues = {...values};
     const device = devices.find(d =>
       d.name === "Power to Temperature" ||
       d.info?.model === "Power-based virtual temperature sensors");
@@ -136,7 +191,9 @@ async function initialize() {
       const live = document.createElement("div");
       live.className = "meta current";
       live.textContent = "Waiting for readings…";
-      description.append(title, live);
+      const saved = document.createElement("div");
+      saved.className = "meta saved";
+      description.append(title, saved, live);
       const field = document.createElement("div");
       const label = document.createElement("label");
       label.className = "meta";
@@ -150,14 +207,24 @@ async function initialize() {
       input.step = "any";
       input.placeholder = "e.g. 500";
       input.autocomplete = "off";
+      input.addEventListener("input", () => {
+        updateSavedLabels();
+        notice.textContent = "Unsaved changes";
+      });
+      input.addEventListener("change", () => {
+        void saveSettings();
+      });
       if (values[id] != null) input.value = values[id];
       field.append(label, input);
       row.append(description, field);
       sourceRoot.appendChild(row);
       inputs.set(id, input);
       output.set(id, live);
+      savedLabels.set(id, saved);
     }
     saveButton.disabled = false;
+    updateSavedLabels();
+    notice.textContent = "Maximum wattages shown above are saved settings.";
     await updateReadings();
     intervalID = setInterval(updateReadings, 3000);
   } catch (error) {
@@ -165,25 +232,9 @@ async function initialize() {
   }
 }
 
-document.getElementById("config-form").addEventListener("submit", async event => {
+document.getElementById("config-form").addEventListener("submit", event => {
   event.preventDefault();
-  saveButton.disabled = true;
-  try {
-    const expected = configValues();
-    await savePluginConfig(expected);
-    const current = await getPluginConfig(true) || {};
-    const saved = current.max_watts || {};
-    if (Object.entries(expected.max_watts).some(([id, w]) => Number(saved[id]) !== w) ||
-        Object.keys(saved).length !== Object.keys(expected.max_watts).length) {
-      throw new Error("CoolerControl did not confirm the settings were saved.");
-    }
-    notice.textContent = "Settings saved.";
-    await updateReadings();
-  } catch (error) {
-    notice.textContent = "Could not save: " + String(error);
-  } finally {
-    saveButton.disabled = inputs.size === 0;
-  }
+  void saveSettings();
 });
 
 window.addEventListener("pagehide", () => {

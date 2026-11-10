@@ -12,3 +12,5 @@ dist/
 config.json
 .env
 *.log
+
+node_modules/
