@@ -7,7 +7,7 @@ const {JSDOM, VirtualConsole} = require('jsdom');
 const html = readFileSync(join(__dirname, '..', 'ui', 'index.html'), 'utf8');
 const SENSOR = 'temp5d2f065aff73';
 
-function harness(initial = {}, shouldPersist = true) {
+function harness(initial = {}, shouldPersist = true, additionalSensors = []) {
     let config = JSON.parse(JSON.stringify(initial));
     const errors = [];
     const virtualConsole = new VirtualConsole();
@@ -22,7 +22,10 @@ function harness(initial = {}, shouldPersist = true) {
                 name: 'Power to Temperature',
                 uid: 'test-device',
                 info: {
-                    temps: new window.Map([[SENSOR, {label: 'amdgpu PPT (power %)'}]])
+                    temps: new window.Map([
+                        [SENSOR, {label: 'amdgpu PPT (power %)'}],
+                        ...additionalSensors,
+                    ])
                 }
             }];
             window.getPluginConfig = async () => JSON.parse(JSON.stringify(config));
@@ -89,6 +92,36 @@ test('failed saves remain visibly unsaved', async () => {
         await flush();
         assert.match(document.querySelector('#notice').textContent, /Save failed/);
         assert.match(document.querySelector('.saved').textContent, /Unsaved change/);
+        assert.deepEqual(errors, []);
+    } finally {
+        dom.window.close();
+    }
+});
+
+test('newly detected Intel GPU is listed alongside existing sources', async () => {
+    const arc = 'temp-intel-arc';
+    const cpu = 'temp-cpu';
+    const {dom, errors, getConfig} = harness(
+        {max_watts: {[SENSOR]: 228}},
+        true,
+        [
+            [arc, {label: 'Intel GPU (i915) Power (power %)'}],
+            [cpu, {label: 'CPU package-0 power (power %)'}],
+        ],
+    );
+    try {
+        await flush();
+        const {document, Event} = dom.window;
+        assert.equal(document.querySelectorAll('input[type=number]').length, 3);
+        assert.match(document.querySelector('#sources').textContent, /Intel GPU \(i915\)/);
+        assert.match(document.querySelector('#sources').textContent, /amdgpu PPT/);
+        const intelInput = document.getElementById('max-' + arc);
+        assert.ok(intelInput);
+        intelInput.value = '190';
+        intelInput.dispatchEvent(new Event('change', {bubbles: true}));
+        await flush();
+        assert.equal(getConfig().max_watts[arc], 190);
+        assert.equal(getConfig().max_watts[SENSOR], 228);
         assert.deepEqual(errors, []);
     } finally {
         dom.window.close();

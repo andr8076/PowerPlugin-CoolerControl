@@ -42,7 +42,7 @@ For temperature protection, use a **Maximum Mix Profile** combining the power-ba
 
 PowerPlugin reads the power measurements provided by the Linux kernel:
 
-- **GPU and other hwmon devices:** `power*_average` and `power*_input`.
+- **GPU and other hwmon devices:** `power*_average`, `power*_input`, and `energy*_input`. Energy counters are converted to watts using the change over time.
 - **CPU:** package power calculated from RAPL `energy_uj` counters.
 
 Sources are detected when the plugin starts. Restart CoolerControl after adding or removing hardware.
@@ -113,4 +113,4 @@ The plugin uses CoolerControl's device-service gRPC API. Protocol definitions ar
 
 GPL-3.0-or-later. See [LICENSE](LICENSE) and [third-party notices](THIRD_PARTY_NOTICES.md).
 
-Version: **1.0.0-rc.3**.
+Version: **1.0.0-rc.4**.

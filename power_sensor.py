@@ -81,7 +81,7 @@ def _hwmon_identity(hwmon: Path, chip: str) -> str:
 
 
 def discover(sys_root: Path = Path("/sys")) -> list[Source]:
-    """Discover hwmon power (average or input) and CPU-package RAPL energy."""
+    """Discover hwmon power/energy and CPU-package RAPL energy."""
     sources: list[Source] = []
     for hwmon in sorted((sys_root / "class/hwmon").glob("hwmon*")):
         try:
@@ -103,6 +103,27 @@ def discover(sys_root: Path = Path("/sys")) -> list[Source]:
                 label = "Power"
             key = f"hwmon:{_hwmon_identity(hwmon, chip)}:power{index}"
             sources.append(Source(key, f"{chip} {label}", path, "power_uw"))
+
+        # Some GPUs (including Intel Arc with i915) expose accumulated energy
+        # rather than instantaneous power. Derive watts from the energy delta.
+        # Prefer the direct power channel when both exist for the same index.
+        for path in sorted(hwmon.glob("energy*_input")):
+            match = re.fullmatch(r"energy(\d+)_input", path.name)
+            if not match:
+                continue
+            index = match.group(1)
+            if index in power_files:
+                continue
+            label_path = hwmon / f"energy{index}_label"
+            try:
+                label = label_path.read_text(encoding="utf-8").strip()
+            except OSError:
+                label = "Power"
+            display_chip = f"Intel GPU ({chip})" if chip in ("i915", "xe") else chip
+            key = f"hwmon:{_hwmon_identity(hwmon, chip)}:energy{index}"
+            sources.append(Source(
+                key, f"{display_chip} {label}", path, "energy_uj",
+            ))
 
     powercap = sys_root / "class/powercap"
     for directory in sorted(powercap.glob("*-rapl:*")):

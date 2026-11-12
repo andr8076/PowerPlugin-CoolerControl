@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0-rc.4 — 2026-11-12
+
+- Detect power sources that expose Linux hwmon `energy*_input` counters, including Intel Arc GPUs using the i915 driver.
+- Derive power consumption from energy changes over time; prioritize direct wattage channels when available.
+- Add hardware discovery, counter reset, and stale-reading regression tests.
+
 ## 1.0.0-rc.3 — 2026-11-10
 
 - Replace existing installations cleanly during upgrades.
